@@ -1,0 +1,10 @@
+﻿  Camera.cpp
+  d3dApp.cpp
+  d3dUtil.cpp
+  DDSTextureLoader.cpp
+  GameTimer.cpp
+  GeometryGenerator.cpp
+  MathHelper.cpp
+  BoxApp.cpp
+  Generating Code...
+  MyD3DProject.vcxproj -> C:\Users\illeahtion\Desktop\PersonalProjects\d3d12book\MyDemos\MyD3DProject\x64\Debug\MyD3DProject.exe
