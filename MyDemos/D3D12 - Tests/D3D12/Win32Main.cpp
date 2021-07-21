@@ -314,9 +314,13 @@ private:
 //
 // Layout for a basic vertex
 //
-struct Vertex
+struct VPosData
 {
 	XMFLOAT3 m_Pos;
+};
+
+struct VColorData
+{
 	XMFLOAT4 m_Color;
 };
 
@@ -381,18 +385,23 @@ struct MeshGeometry
 
 	// system memory vertex data stored in generic blobs
 	T_ComPtr<ID3DBlob> m_VertexBufferCPU;
+	T_ComPtr<ID3DBlob> m_VertexBufferCPU2;
 	T_ComPtr<ID3DBlob> m_IndexBufferCPU;
 
 	// GPU memory
 	T_ComPtr<ID3D12Resource> m_VertexBufferGPU;
+	T_ComPtr<ID3D12Resource> m_VertexBufferGPU2;
 	T_ComPtr<ID3D12Resource> m_IndexBufferGPU;
 
 	T_ComPtr<ID3D12Resource> m_VertexBufferUploader;
+	T_ComPtr<ID3D12Resource> m_VertexBufferUploader2;
 	T_ComPtr<ID3D12Resource> m_IndexBufferUploader;
 
 	// layout
 	UINT m_VertexByteStride = 0u;
 	UINT m_VertexBufferByteSize = 0u;
+	UINT m_VertexByteStride2 = 0u;
+	UINT m_VertexBufferByteSize2 = 0u;
 	DXGI_FORMAT m_IndexFormat = DXGI_FORMAT_R16_UINT;
 	UINT m_IndexBufferByteSize = 0u;
 
@@ -1812,7 +1821,7 @@ void BuildShadersAndInputLayout()
 	g_DxApp.m_InputLayout =
 	{
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
 	};
 }
 
@@ -1824,19 +1833,32 @@ void BuildShadersAndInputLayout()
 void BuildBoxGeometry()
 {
 	// cube vertices and indices
-	std::array<Vertex, 8> vertices =
+	std::array<VPosData, 8> vertexPositions =
 	{
-		Vertex({ XMFLOAT3(-1.f, -1.f, -1.f), XMFLOAT4(Colors::White) }),
-		Vertex({ XMFLOAT3(-1.f, +1.f, -1.f), XMFLOAT4(Colors::Black) }),
-		Vertex({ XMFLOAT3(+1.f, +1.f, -1.f), XMFLOAT4(Colors::Red) }),
-		Vertex({ XMFLOAT3(+1.f, -1.f, -1.f), XMFLOAT4(Colors::Green) }),
-		Vertex({ XMFLOAT3(-1.f, -1.f, +1.f), XMFLOAT4(Colors::Blue) }),
-		Vertex({ XMFLOAT3(-1.f, +1.f, +1.f), XMFLOAT4(Colors::Yellow) }),
-		Vertex({ XMFLOAT3(+1.f, +1.f, +1.f), XMFLOAT4(Colors::Cyan) }),
-		Vertex({ XMFLOAT3(+1.f, -1.f, +1.f), XMFLOAT4(Colors::Magenta) })
+		VPosData({ XMFLOAT3(-1.f, -1.f, -1.f)}),
+		VPosData({ XMFLOAT3(-1.f, +1.f, -1.f)}),
+		VPosData({ XMFLOAT3(+1.f, +1.f, -1.f)}),
+		VPosData({ XMFLOAT3(+1.f, -1.f, -1.f)}),
+		VPosData({ XMFLOAT3(-1.f, -1.f, +1.f)}),
+		VPosData({ XMFLOAT3(-1.f, +1.f, +1.f)}),
+		VPosData({ XMFLOAT3(+1.f, +1.f, +1.f)}),
+		VPosData({ XMFLOAT3(+1.f, -1.f, +1.f)})
 	};
 
-	UINT64 const vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	std::array<VColorData, 8> vertexColors =
+	{
+		VColorData({XMFLOAT4(Colors::White) }),
+		VColorData({XMFLOAT4(Colors::Black) }),
+		VColorData({XMFLOAT4(Colors::Red) }),
+		VColorData({XMFLOAT4(Colors::Green) }),
+		VColorData({XMFLOAT4(Colors::Blue) }),
+		VColorData({XMFLOAT4(Colors::Yellow) }),
+		VColorData({XMFLOAT4(Colors::Cyan) }),
+		VColorData({XMFLOAT4(Colors::Magenta) })
+	};
+
+	UINT64 const vbPosByteSize = (UINT)vertexPositions.size() * sizeof(VPosData);
+	UINT64 const vbColByteSize = (UINT)vertexColors.size() * sizeof(VColorData);
 
 	std::array<std::uint16_t, 36> indices =
 	{
@@ -1854,13 +1876,21 @@ void BuildBoxGeometry()
 	g_DxApp.m_BoxGeo->m_Name = "boxGeo";
 
 	// CPU side memory
-	if (FAILED(D3DCreateBlob(vbByteSize, &g_DxApp.m_BoxGeo->m_VertexBufferCPU)))
+	if (FAILED(D3DCreateBlob(vbPosByteSize, &g_DxApp.m_BoxGeo->m_VertexBufferCPU)))
 	{
 		MessageBox(0, L"Failed to create CPU vertex buffer!", L"ERROR", MB_OK);
 		return;
 	}
 
-	CopyMemory(g_DxApp.m_BoxGeo->m_VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+	CopyMemory(g_DxApp.m_BoxGeo->m_VertexBufferCPU->GetBufferPointer(), vertexPositions.data(), vbPosByteSize);
+
+	if (FAILED(D3DCreateBlob(vbColByteSize, &g_DxApp.m_BoxGeo->m_VertexBufferCPU2)))
+	{
+		MessageBox(0, L"Failed to create CPU vertex buffer!", L"ERROR", MB_OK);
+		return;
+	}
+
+	CopyMemory(g_DxApp.m_BoxGeo->m_VertexBufferCPU2->GetBufferPointer(), vertexColors.data(), vbColByteSize);
 
 	if (FAILED(D3DCreateBlob(ibByteSize, &g_DxApp.m_BoxGeo->m_IndexBufferCPU)))
 	{
@@ -1873,9 +1903,15 @@ void BuildBoxGeometry()
 	// GPU side memory
 	g_DxApp.m_BoxGeo->m_VertexBufferGPU = CreateDefaultBuffer(g_DxApp.m_D3dDevice.Get(),
 		g_DxApp.m_CommandList.Get(),
-		vertices.data(),
-		vbByteSize,
+		vertexPositions.data(),
+		vbPosByteSize,
 		g_DxApp.m_BoxGeo->m_VertexBufferUploader);
+
+	g_DxApp.m_BoxGeo->m_VertexBufferGPU2 = CreateDefaultBuffer(g_DxApp.m_D3dDevice.Get(),
+		g_DxApp.m_CommandList.Get(),
+		vertexColors.data(),
+		vbColByteSize,
+		g_DxApp.m_BoxGeo->m_VertexBufferUploader2);
 
 	g_DxApp.m_BoxGeo->m_IndexBufferGPU = CreateDefaultBuffer(g_DxApp.m_D3dDevice.Get(),
 		g_DxApp.m_CommandList.Get(),
@@ -1884,8 +1920,10 @@ void BuildBoxGeometry()
 		g_DxApp.m_BoxGeo->m_IndexBufferUploader);
 
 	// format
-	g_DxApp.m_BoxGeo->m_VertexByteStride = sizeof(Vertex);
-	g_DxApp.m_BoxGeo->m_VertexBufferByteSize = vbByteSize;
+	g_DxApp.m_BoxGeo->m_VertexByteStride = sizeof(VPosData);
+	g_DxApp.m_BoxGeo->m_VertexBufferByteSize = vbPosByteSize;
+	g_DxApp.m_BoxGeo->m_VertexByteStride2 = sizeof(VColorData);
+	g_DxApp.m_BoxGeo->m_VertexBufferByteSize2 = vbColByteSize;
 	g_DxApp.m_BoxGeo->m_IndexFormat = DXGI_FORMAT_R16_UINT;
 	g_DxApp.m_BoxGeo->m_IndexBufferByteSize = ibByteSize;
 
